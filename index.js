@@ -1,9 +1,10 @@
 const express = require('express');
-const { S3Client, ListObjectsV2Command, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const fs = require('fs')
 const fileUpload = require('express-fileupload')
 
 app = express();
+app.use(fileUpload());
 
 const s3Client = new S3Client({
   region: 'us-east-1',
@@ -25,6 +26,7 @@ app.get('/images', (req, res) => {
       res.send(listObjectsResponse.Contents)
     })
 });
+
 const UPLOAD_TEMP_PATH = './temp'
 app.post('/images', (req, res) => {
   const file = req.files.image
@@ -38,6 +40,19 @@ app.post('/images', (req, res) => {
   s3Client.send(new PutObjectCommand(putObjectParams))
     .then((putObjectResponse) => {
       res.send(putObjectResponse)
+    })
+})
+
+app.get('/images/:fileName', async (req, res) => {
+  const key = req.params.fileName;
+  getObjectParams = {
+    Bucket: 'my-cool-local-bucket',
+    Key: key
+  }
+  await s3Client.send(new GetObjectCommand(getObjectParams))
+    .then((getObjectResponse) => {
+      console.log(getObjectResponse)
+      res.send(getObjectResponse)
     })
 })
 

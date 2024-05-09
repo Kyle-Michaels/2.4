@@ -7,10 +7,10 @@ app = express();
 app.use(fileUpload());
 
 const s3Client = new S3Client({
-  region: 'us-east-1',
-  endpoint: 'http://localhost:4566',
-  forcePathStyle: true
+  region: 'us-west-1'
 })
+
+const bucket = process.env.BUCKET_NAME;
 
 app.get('/', (req, res) => {
   let responseText = '2.4 Task';
@@ -19,7 +19,7 @@ app.get('/', (req, res) => {
 
 app.get('/images', (req, res) => {
   listObjectsParams = {
-    Bucket: 'my-cool-local-bucket'
+    Bucket: bucket
   };
   s3Client.send(new ListObjectsV2Command(listObjectsParams))
     .then((listObjectsResponse) => {
@@ -34,8 +34,9 @@ app.post('/images', (req, res) => {
   const tempPath = `${UPLOAD_TEMP_PATH}/${fileName}`
   file.mv(tempPath, (err) => { res.status(500) })
   const putObjectParams = {
-    Bucket: 'my-cool-local-bucket',
-    Key: fileName
+    Bucket: bucket,
+    Key: fileName,
+    Body: fs.readFileSync(tempPath)
   };
   s3Client.send(new PutObjectCommand(putObjectParams))
     .then((putObjectResponse) => {
@@ -44,15 +45,18 @@ app.post('/images', (req, res) => {
 })
 
 app.get('/images/:fileName', async (req, res) => {
-  const key = req.params.fileName;
   getObjectParams = {
-    Bucket: 'my-cool-local-bucket',
-    Key: key
+    Bucket: bucket,
+    Key: req.params.fileName
   }
   await s3Client.send(new GetObjectCommand(getObjectParams))
-    .then((getObjectResponse) => {
-      console.log(getObjectResponse)
-      res.send(getObjectResponse)
+    .then(async (getObjectResponse) => {
+      res.writeHead(200, {
+        'Content-Length': getObjectResponse.ContentLength
+      });
+      getObjectResponse.Body.transformToByteArray().then((buffer) => {
+        res.end(buffer);
+      });
     })
 })
 
